@@ -4,6 +4,8 @@ const fs = require('fs')
 const { execSync } = require('child_process')
 
 const shelfDir = path.join(app.getPath('userData'), 'ShelfHoldingArea')
+const configPath = path.join(app.getPath('userData'), 'config.json')
+
 try { fs.mkdirSync(shelfDir, { recursive: true }) } catch (e) {}
 
 const IS_DEV = process.argv.includes('--dev')
@@ -305,7 +307,6 @@ function registerIPC() {
 
   ipcMain.handle('config:get', async () => {
     try {
-      const configPath = path.join(__dirname, '../config.json')
       if (fs.existsSync(configPath)) {
         return JSON.parse(fs.readFileSync(configPath, 'utf8'))
       }
@@ -320,7 +321,6 @@ function registerIPC() {
   
   ipcMain.on('config:save', (_, config) => {
     try {
-      const configPath = path.join(__dirname, '../config.json')
       fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
       applyLoginSettings(config)
     } catch(e) {
@@ -387,7 +387,6 @@ app.whenReady().then(() => {
     screen.on('display-removed', () => forceIslandToTop())
 
     // Apply login settings from config
-    const configPath = path.join(__dirname, '../config.json')
     if (fs.existsSync(configPath)) {
       try {
         const config = JSON.parse(fs.readFileSync(configPath, 'utf8'))
