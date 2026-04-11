@@ -79,7 +79,7 @@ function createIslandWindow() {
     alwaysOnTop: true,
     resizable: false,
     hasShadow: false,
-    skipTaskbar: true,
+    skipTaskbar: false,
     type: 'panel',
     visibleOnAllWorkspaces: true,
     webPreferences: {
