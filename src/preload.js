@@ -14,5 +14,7 @@ contextBridge.exposeInMainWorld('island', {
   absorbFile: (filepath) => ipcRenderer.invoke('shelf:absorb', filepath),
   checkExists: (filepath) => ipcRenderer.invoke('shelf:check', filepath),
   getConfig: () => ipcRenderer.invoke('config:get'),
-  openSettings: () => ipcRenderer.send('system:settings')
+  saveConfig: (config) => ipcRenderer.send('config:save', config),
+  openSettings: () => ipcRenderer.send('system:settings'),
+  onShowSettings: (cb) => ipcRenderer.on('app:show-settings', () => cb())
 })

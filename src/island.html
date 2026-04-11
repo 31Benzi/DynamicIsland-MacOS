@@ -279,6 +279,29 @@
     0%,80%,100% { transform: translateY(0); opacity: 0.4; }
     40% { transform: translateY(-4px); opacity: 1; }
   }
+
+  /* Settings Styles */
+  .settings-group { margin-bottom: 12px; }
+  .settings-label { 
+    display: block; font-size: 10px; font-weight: 600; 
+    color: rgba(255,255,255,0.4); text-transform: uppercase; 
+    margin-bottom: 6px; letter-spacing: 0.05em;
+  }
+  .settings-input {
+    width: 100%; background: rgba(255,255,255,0.07); 
+    border: 0.5px solid rgba(255,255,255,0.1); border-radius: 8px;
+    padding: 8px 10px; color: #fff; font-size: 12px; outline: none;
+    transition: border-color 0.2s;
+  }
+  .settings-input:focus { border-color: rgba(255,255,255,0.3); }
+  .settings-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+  .save-btn {
+    background: #fff; color: #000; border: none; border-radius: 6px;
+    padding: 6px 14px; font-size: 11px; font-weight: 600; cursor: pointer;
+    transition: transform 0.1s, background 0.2s;
+  }
+  .save-btn:hover { background: #e5e5e5; transform: scale(1.04); }
+  .save-btn:active { transform: scale(0.96); }
 </style>
 </head>
 <body>
@@ -421,6 +444,27 @@
         </button>
       </div>
     </div>
+
+    <div class="panel" id="panel-settings">
+      <div class="row-header" style="margin-bottom: 10px;">
+        <span class="section-label">App Settings</span>
+      </div>
+      <div class="settings-group">
+        <label class="settings-label">OpenRouter API Key</label>
+        <input type="password" class="settings-input" id="setting-api-key" placeholder="sk-or-v1-..." />
+      </div>
+      <div class="settings-group">
+        <label class="settings-label">AI Model Name</label>
+        <input type="text" class="settings-input" id="setting-model-name" placeholder="google/gemini-2.0-flash-001" />
+      </div>
+      <div class="settings-group" style="display: flex; align-items: center; gap: 8px; margin-top: 14px; cursor: pointer;" onclick="document.getElementById('setting-login-start').click()">
+        <input type="checkbox" id="setting-login-start" style="width: 14px; height: 14px; cursor: pointer;" onclick="event.stopPropagation()" />
+        <label class="settings-label" style="margin-bottom: 0; cursor: pointer;">Start App @ Login</label>
+      </div>
+      <div class="settings-actions">
+        <button class="save-btn" onclick="saveAppSettings()">Save Changes</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -470,6 +514,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const track = await window.island.getNowPlaying()
     updateNowPlaying(track)
+
+    window.island.onShowSettings(() => {
+      expand();
+      switchTab('settings');
+    })
+    
+    // Load current config into settings inputs
+    const config = await window.island.getConfig();
+    if (config) {
+      document.getElementById('setting-api-key').value = config.OPENROUTER_API_KEY || '';
+      document.getElementById('setting-model-name').value = config.MODEL_NAME || '';
+      document.getElementById('setting-login-start').checked = !!config.START_AT_LOGIN;
+    }
   }
 
   startProgressAnimation()
@@ -524,12 +581,16 @@ function collapse() {
   }, 460)
 }
 
-const TAB_LABELS = { media: 'Media', clip: 'Clipboard', shelf: 'File Drop', ai: 'AI Assistant' }
+const TAB_LABELS = { media: 'Media', clip: 'Clipboard', shelf: 'File Drop', ai: 'AI Assistant', settings: 'Settings' }
 
 function switchTab(tab) {
   currentTab = tab
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab))
   
+  const settingsBtn = document.getElementById('settings-btn')
+  if (settingsBtn) {
+    settingsBtn.style.color = tab === 'settings' ? '#3b82f6' : '#fff'
+  }
 
   const isMediaTab = tab === 'media' || tab === 'home';
   document.querySelectorAll('.panel').forEach(p => {
@@ -800,6 +861,30 @@ async function sendAI() {
     resp.textContent = data.choices?.[0]?.message?.content ?? 'Sorry, no response from cloud API.'
   } catch (e) {
     resp.textContent = 'Network offline or API Error. Please check your connection.'
+  }
+}
+
+async function saveAppSettings() {
+  const apiKey = document.getElementById('setting-api-key').value.trim();
+  const modelName = document.getElementById('setting-model-name').value.trim();
+  const startAtLogin = document.getElementById('setting-login-start').checked;
+  
+  if (window.island?.saveConfig) {
+    window.island.saveConfig({
+      OPENROUTER_API_KEY: apiKey,
+      MODEL_NAME: modelName,
+      START_AT_LOGIN: startAtLogin
+    });
+    
+    const saveBtn = document.querySelector('.save-btn');
+    const originalText = saveBtn.textContent;
+    saveBtn.textContent = 'Saved! ✓';
+    saveBtn.style.background = '#34d399';
+    
+    setTimeout(() => {
+      saveBtn.textContent = originalText;
+      saveBtn.style.background = '';
+    }, 2000);
   }
 }
 

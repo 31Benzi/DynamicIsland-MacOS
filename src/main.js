@@ -313,10 +313,28 @@ function registerIPC() {
     return {}
   })
 
-  ipcMain.on('system:settings', () => {
+  ipcMain.on('system:settings', (event) => {
+    // We no longer open Mac System Settings, instead we tell the UI to show its own settings
+    event.sender.send('app:show-settings')
+  })
+  
+  ipcMain.on('config:save', (_, config) => {
     try {
-      execSync('open -a "System Settings"')
-    } catch (_) {}
+      const configPath = path.join(__dirname, '../config.json')
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
+      applyLoginSettings(config)
+    } catch(e) {
+      console.error('Failed to save config:', e)
+    }
+  })
+}
+
+function applyLoginSettings(config) {
+  if (IS_DEV) return
+  const startAtLogin = !!config.START_AT_LOGIN
+  app.setLoginItemSettings({
+    openAtLogin: startAtLogin,
+    path: app.getPath('exe'),
   })
 }
 
@@ -366,8 +384,16 @@ app.whenReady().then(() => {
       islandWin?.webContents.send('media:nowplaying', track)
     }, 1000)
 
-    screen.on('display-added', () => forceIslandToTop())
     screen.on('display-removed', () => forceIslandToTop())
+
+    // Apply login settings from config
+    const configPath = path.join(__dirname, '../config.json')
+    if (fs.existsSync(configPath)) {
+      try {
+        const config = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+        applyLoginSettings(config)
+      } catch(e) {}
+    }
   }, 600)
 })
 
