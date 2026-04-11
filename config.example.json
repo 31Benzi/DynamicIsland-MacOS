@@ -1,0 +1,4 @@
+{
+  "OPENROUTER_API_KEY": "sk-or-v1-YOUR_KEY_HERE",
+  "MODEL_NAME": "nvidia/nemotron-3-super-120b-a12b:free"
+}

@@ -1,0 +1,39 @@
+{
+  "name": "dynamic-island-mac",
+  "version": "0.1.0",
+  "description": "Dynamic Island for macOS — pill-shaped overlay with media, notifications, clipboard & AI",
+  "author": "Dynamic Island",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/31Benzi/DynamicIsland-MacOS.git"
+  },
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder --mac --dir",
+    "dist": "electron-builder --mac"
+  },
+  "dependencies": {
+    "node-notifier": "^10.0.1"
+  },
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "dev.benzi.dynamic-island",
+    "productName": "Dynamic Island",
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": "dmg",
+      "darkModeSupport": true,
+      "icon": "icons/icon.png"
+    },
+    "files": ["src/**/*", "assets/**/*"],
+    "extraMetadata": {
+      "main": "src/main.js"
+    }
+  }
+}

@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dynamic Island</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-user-select: none; user-select: none; }
+
+  html, body {
+    background: transparent;
+    width: 100%; height: 100%;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+    -webkit-app-region: no-drag;
+  }
+
+  #island {
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    background: #000000;
+    border-radius: 100px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: width 0.45s cubic-bezier(0.2, 0.85, 0.2, 1.05),
+                height 0.45s cubic-bezier(0.2, 0.85, 0.2, 1.05),
+                border-radius 0.45s cubic-bezier(0.2, 0.85, 0.2, 1.05);
+    width: 170px;
+    height: 40px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: inset 0 0 0 0.5px rgba(255,255,255,0.08);
+    -webkit-app-region: no-drag;
+  }
+
+  #island.expanded {
+    border-radius: 40px;
+    cursor: default;
+  }
+
+  #pill-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    height: 40px;
+    padding: 0 16px;
+    flex-shrink: 0;
+    transition: opacity 0.25s ease-out, transform 0.45s cubic-bezier(0.2, 0.85, 0.2, 1.05);
+  }
+
+  #island.expanded #pill-bar { 
+    opacity: 0; 
+    pointer-events: none; 
+    position: absolute; 
+    transform: scale(0.85) translateY(-5px);
+  }
+
+  .pill-item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600;
+    color: rgba(255,255,255,0.9);
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  #pill-music-item { flex: 1; min-width: 0; }
+  #pill-music-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  #pill-battery-item { flex-shrink: 0; }
+
+  .pill-icon {
+    display: flex; align-items: center; justify-content: center;
+    width: 14px; height: 14px; color: #ffffff;
+  }
+
+  #pill-charge-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: #000; display: flex; align-items: center; justify-content: center; gap: 8px;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    border-radius: 100px;
+  }
+  #pill-charge-overlay.active { opacity: 1; z-index: 10; }
+  .charge-icon { color: #34d399; display: flex; align-items: center; }
+  .charge-text { color: #34d399; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+
+  .pill-sep {
+    width: 0.5px; height: 14px;
+    background: rgba(255,255,255,0.15);
+  }
+
+  .pill-music-eq {
+    display: flex;
+    align-items: center;
+    gap: 1.5px;
+    height: 12px;
+    display: none;
+  }
+
+  .pill-music-eq .eq-bar {
+    width: 2.5px;
+    background: #ffffff;
+    border-radius: 1px;
+    animation: eqBounce 0.6s infinite alternate ease-in-out;
+  }
+  .pill-music-eq .eq-bar:nth-child(1) { height: 6px; animation-duration: 0.4s; background: #ff3b30; }
+  .pill-music-eq .eq-bar:nth-child(2) { height: 12px; animation-duration: 0.6s; background: #ff9500; }
+  .pill-music-eq .eq-bar:nth-child(3) { height: 8px; animation-duration: 0.5s; background: #32ade6; }
+  .pill-music-eq .eq-bar:nth-child(4) { height: 10px; animation-duration: 0.7s; background: #a2845e; }
+
+  @keyframes eqBounce {
+    0% { transform: scaleY(0.25); }
+    100% { transform: scaleY(1); }
+  }
+
+  .is-playing #pill-music-icon { display: none; }
+  .is-playing .pill-music-eq { display: flex; }
+
+  #content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px 14px;
+    min-height: 0;
+    
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: scale(0.92) translateY(5px);
+    transition: opacity 0.3s ease-out, transform 0.45s cubic-bezier(0.2, 0.85, 0.2, 1.05), visibility 0s 0.45s;
+  }
+
+  #island.expanded #content { 
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: scale(1) translateY(0);
+    transition: opacity 0.35s ease-in 0.08s, transform 0.45s cubic-bezier(0.2, 0.85, 0.2, 1.05) 0.05s, visibility 0s;
+  }
+
+  .row-header {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .section-label {
+    font-size: 10px; font-weight: 600;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+
+  .close-btn {
+    width: 22px; height: 22px;
+    border-radius: 50%; border: none;
+    background: transparent;
+    color: rgba(255,255,255,0.7);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: color 0.15s;
+  }
+  .close-btn:hover { color: #fff; }
+
+  .top-nav {
+    display: flex; justify-content: space-between; align-items: center; 
+    margin-bottom: 2px; padding: 0 4px;
+  }
+  
+  .tab-bar {
+    display: flex; gap: 4px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 12px; padding: 3px;
+  }
+
+  .tab {
+    width: 28px; height: 18px;
+    border-radius: 8px; border: none;
+    background: transparent;
+    color: rgba(255,255,255,0.5);
+    cursor: pointer; transition: all 0.18s;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .tab.active {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+  }
+
+  .panel { 
+    display: none; flex-direction: column; gap: 8px; 
+    flex: 1; min-height: 0; overflow-y: auto; 
+    padding-right: 2px;
+  }
+  .panel.active { display: flex; }
+  .panel::-webkit-scrollbar { width: 4px; }
+  .panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+
+  .media-row { display: flex; align-items: center; gap: 10px; }
+
+  .album-art {
+    width: 44px; height: 44px; border-radius: 9px; flex-shrink: 0;
+    background: linear-gradient(135deg, #ffffff, #d4d4d4); color: #000;
+    background-size: cover; background-position: center;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+
+  .track-info { flex: 1; overflow: hidden; }
+  .track-name { font-size: 13px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .track-artist { font-size: 11px; color: rgba(255,255,255,0.42); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .prog-bar { height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+  .prog-fill { height: 100%; background: rgba(255,255,255,0.85); border-radius: 2px; width: 35%; transition: width 1s linear; }
+
+  .ctrl-row { display: flex; align-items: center; justify-content: center; gap: 22px; }
+  .ctrl-btn {
+    background: none; border: none; cursor: pointer;
+    color: rgba(255,255,255,0.65); padding: 4px;
+    border-radius: 6px; transition: color 0.15s, transform 0.1s;
+    display: flex; align-items: center;
+  }
+  .ctrl-btn:hover { color: #fff; transform: scale(1.12); }
+  .ctrl-btn.primary { color: #fff; }
+
+
+  .clip-list { display: flex; flex-direction: column; gap: 6px; }
+  .clip-item {
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px; padding: 10px 14px;
+    font-size: 14px; color: rgba(255,255,255,0.8);
+    cursor: pointer; transition: all 0.15s;
+    border: 0.5px solid transparent;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .clip-item:hover { background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.1); }
+  .clip-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+  .clip-badge { font-size: 11px; color: rgba(255,255,255,0.3); flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.05em; }
+  .clip-item:hover .clip-badge { color: rgba(255,255,255,0.6); }
+
+  .ai-response {
+    background: rgba(255,255,255,0.06);
+    border: 0.5px solid rgba(255,255,255,0.15);
+    border-radius: 9px; padding: 9px 10px;
+    font-size: 12px; color: rgba(255,255,255,0.78);
+    line-height: 1.5; display: none;
+    max-height: 120px; overflow-y: auto;
+  }
+  .ai-response.visible { display: block; }
+
+  .ai-input-wrap {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 10px; padding: 7px 10px;
+    border: 0.5px solid rgba(255,255,255,0.08);
+  }
+  .ai-input {
+    flex: 1; background: none; border: none; outline: none;
+    color: #fff; font-size: 12px;
+    font-family: inherit; caret-color: #ffffff;
+  }
+  .ai-input::placeholder { color: rgba(255,255,255,0.22); }
+  .ai-send {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: #ffffff; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: #000; transition: background 0.15s, transform 0.1s; flex-shrink: 0;
+  }
+  .ai-send:hover { background: #e5e5e5; transform: scale(1.06); }
+
+  .typing { display: flex; gap: 3px; align-items: center; padding: 4px 2px; }
+  .typing span {
+    width: 4px; height: 4px; background: rgba(255,255,255,0.4);
+    border-radius: 50%; animation: bounce 1.2s infinite ease-in-out;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.15s; }
+  .typing span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes bounce {
+    0%,80%,100% { transform: translateY(0); opacity: 0.4; }
+    40% { transform: translateY(-4px); opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<div id="island" onclick="handleIslandClick()">
+
+  <div id="pill-bar">
+    <div class="pill-item" id="pill-music-item">
+      <div class="pill-icon" id="pill-music-icon" style="background-size: cover; background-position: center; border-radius: 4px;">
+        <svg id="pill-music-svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+        </svg>
+      </div>
+      <div class="pill-music-eq" id="pill-music-eq">
+        <div class="eq-bar"></div><div class="eq-bar"></div><div class="eq-bar"></div><div class="eq-bar"></div>
+      </div>
+      <span id="pill-music-label">No music</span>
+    </div>
+    
+    <div class="pill-item" id="pill-battery-item" style="display: none; align-items: center; gap: 4px;">
+      <div class="charge-icon" style="color: #34d399;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M16 4h-2V2h-4v2H8c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-3 14h-2v-4H9l4-7v4h2l-4 7z"/></svg>
+      </div>
+      <span class="charge-text" id="pill-battery-text" style="color: #34d399; font-size: 10px;"></span>
+    </div>
+    
+    <div id="pill-charge-overlay">
+      <div class="charge-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 4h-2V2h-4v2H8c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-3 14h-2v-4H9l4-7v4h2l-4 7z"/></svg>
+      </div>
+      <span class="charge-text" id="charge-text">Charging</span>
+    </div>
+  </div>
+
+  <div id="content">
+    <div class="top-nav">
+      <div class="tab-bar">
+        <button class="tab active" data-tab="media">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+        </button>
+        <button class="tab" data-tab="shelf">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+        </button>
+        <button class="tab" data-tab="clip">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        </button>
+        <button class="tab" data-tab="ai">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"></path></svg>
+        </button>
+      </div>
+      <button class="settings-btn" id="settings-btn" style="background: none; border: none; color: #fff; display:flex; align-items:center; cursor:pointer;" onclick="window.island?.openSettings()">
+         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+      </button>
+    </div>
+
+    <div class="panel active" id="panel-media" style="flex-direction: row; gap: 15px; padding: 0 4px;">
+      <div style="flex: 1.1; display: flex; gap: 12px; align-items: flex-start; min-width: 0;">
+        <div style="position: relative;">
+          <div id="album-art" style="width: 82px; height: 82px; border-radius: 8px; background: linear-gradient(135deg, #333, #111); background-size: cover; background-position: center;"></div>
+          <div style="position: absolute; bottom: -4px; right: -4px; background: #000; border-radius: 50%; padding: 2px;">
+            <svg style="color: #1DB954; width: 14px; height: 14px;" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.6 14.4c-.2.32-.62.43-.94.23-2.58-1.58-5.83-1.94-9.66-1.06-.36.08-.72-.15-.8-.51-.08-.36.15-.72.51-.8 4.18-.95 7.77-.55 10.66 1.22.32.19.43.62.23.94zm1.34-3c-.25.4-.77.53-1.17.28-2.96-1.82-7.5-2.38-10.8-1.3-.43.14-.89-.1-1.03-.53-.14-.43.1-.89.53-1.03 3.8-1.24 8.84-.6 12.2 1.46.4.24.52.76.27 1.16zm.1-3.13c-3.55-2.1-9.4-2.3-12.75-1.27-.51.15-1.05-.13-1.2-.64-.15-.51.13-1.05.64-1.2 3.86-1.18 10.35-.94 14.42 1.47.46.28.61.88.33 1.35-.28.46-.88.61-1.35.33z"/></svg>
+          </div>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; min-width: 0; padding-top: 2px;">
+          <div id="track-name" style="font-size: 13px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Not playing</div>
+          <div id="track-artist" style="font-size: 11px; font-weight: 500; color: #d4a373; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Open Spotify</div>
+          
+          <div style="margin-top: 14px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px;">
+            <div id="prog-fill" style="height: 100%; width: 35%; background: #ffffff; border-radius: 2px; transition: width 1s linear;"></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 9px; font-weight: 500; color: rgba(255,255,255,0.5); margin-top: 4px;">
+            <span id="prog-curr">0:00</span><span id="prog-total">0:00</span>
+          </div>
+
+          <div style="display: flex; justify-content: center; gap: 16px; margin-top: 10px;">
+            <button onclick="mediaCmd('prev')" style="background:none; border:none; color:#fff; cursor:pointer; padding:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 20L9 12l10-8v16zM5 4h2v16H5z"/></svg></button>
+            <button id="play-btn" onclick="mediaCmd('play')" style="background:none; border:none; color:#fff; cursor:pointer; padding:4px;"><svg width="14" height="14" id="play-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>
+            <button onclick="mediaCmd('next')" style="background:none; border:none; color:#fff; cursor:pointer; padding:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l10 8-10 8V4zM19 4h2v16h-2z"/></svg></button>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex: 1; display: flex; flex-direction: column;">
+        <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px;">
+          <div id="cal-month" style="font-size: 14px; font-weight: 700; color: #fff;">Nov</div>
+          <div id="cal-year" style="font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.4);">2025</div>
+          <div id="cal-week-row" style="display: flex; flex-row: 1; justify-content: space-between; margin-left: 8px;">
+          </div>
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+
+          <div style="display: flex; gap: 6px; align-items: center; padding: 4px 0;" id="weather-widget">
+             <div style="width: 2px; height: 18px; background: #fbbf24; border-radius: 2px;"></div>
+             <div style="flex: 1; display: flex; align-items: center; gap: 6px;">
+               <svg style="color: #fbbf24; width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+               <div>
+                 <div style="font-size: 10px; font-weight: 600; color: #fff;" id="weather-temp">--</div>
+                 <div style="font-size: 9px; color: rgba(255,255,255,0.5);" id="weather-desc">Loading...</div>
+               </div>
+             </div>
+             <div style="font-size: 9px; color: rgba(255,255,255,0.5); text-align: right;" id="weather-loc">
+               Detecting...
+             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="panel" id="panel-clip">
+      <div class="clip-list" id="clip-list">
+        <div class="clip-item" style="color:rgba(255,255,255,0.3);cursor:default;">
+          <span class="clip-text">Copy something to see it here</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-shelf">
+      <div class="row-header" style="margin-bottom: 6px; padding: 0 4px;">
+        <span class="section-label">Options</span>
+        <select id="shelf-mode-select" style="background: rgba(255,255,255,0.1); color: #fff; border: none; border-radius: 4px; font-size: 10px; padding: 2px 4px; outline: none; cursor: pointer;">
+          <option value="reference">Hold Reference</option>
+          <option value="absorb">Absorb (Cut / Paste)</option>
+        </select>
+      </div>
+      <div class="clip-list" id="shelf-list">
+        <div class="clip-item" style="color:rgba(255,255,255,0.3);cursor:default;">
+          <span class="clip-text">Drag & drop files here</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-ai">
+      <div class="ai-response" id="ai-response"></div>
+      <div class="ai-input-wrap">
+        <input class="ai-input" id="ai-input" placeholder="Ask anything…" />
+        <button class="ai-send" id="ai-send">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const EXPANDED_W = 380, EXPANDED_H = 260
+const COLLAPSED_W = 170, COLLAPSED_H = 40
+
+let expanded = false
+let currentTab = 'media'
+let isPlaying = false
+let currentPos = 0
+let currentDur = 0
+let lastUpdateTimestamp = 0
+
+document.addEventListener('DOMContentLoaded', async () => {
+
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', e => { e.stopPropagation(); switchTab(t.dataset.tab) })
+  })
+
+
+  const closeBtn = document.getElementById('close-btn');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', e => {
+      e.stopPropagation(); collapse()
+    });
+  }
+
+  document.getElementById('ai-send').addEventListener('click', sendAI)
+  document.getElementById('ai-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendAI()
+    e.stopPropagation()
+  })
+
+  updateCalendar()
+  updateWeather()
+  setInterval(updateWeather, 15 * 60 * 1000) // Update weather every 15 mins
+  setInterval(updateCalendar, 60 * 60 * 1000) // Update calendar every hour
+
+  if (window.island) {
+    const items = await window.island.getClipboard()
+    renderClipboard(items)
+
+    window.island.onClipboardUpdate(renderClipboard)
+    window.island.onNowPlaying(updateNowPlaying)
+    window.island.onCharging(handleChargingEvent)
+
+    const track = await window.island.getNowPlaying()
+    updateNowPlaying(track)
+  }
+
+  startProgressAnimation()
+})
+
+
+let collapseTimer = null
+
+document.getElementById('island').addEventListener('mouseenter', () => {
+  clearTimeout(collapseTimer)
+  expand()
+})
+
+document.getElementById('island').addEventListener('mouseleave', () => {
+
+  collapseTimer = setTimeout(() => collapse(), 300)
+})
+
+function handleIslandClick() { }
+
+function expand() {
+  if (expanded) return
+  expanded = true
+  
+
+  window.island?.resize(EXPANDED_W, EXPANDED_H)
+  
+
+  setTimeout(() => {
+    if (!expanded) return;
+    const el = document.getElementById('island')
+    el.classList.add('expanded')
+    el.style.width = EXPANDED_W + 'px'
+    el.style.height = EXPANDED_H + 'px'
+  }, 20)
+}
+
+function collapse() {
+  if (!expanded) return
+  expanded = false
+  
+  const el = document.getElementById('island')
+  el.classList.remove('expanded')
+  el.style.width = COLLAPSED_W + 'px'
+  el.style.height = COLLAPSED_H + 'px'
+  
+
+  setTimeout(() => {
+    if (!expanded) {
+      window.island?.resize(COLLAPSED_W, COLLAPSED_H)
+    }
+  }, 460)
+}
+
+const TAB_LABELS = { media: 'Media', clip: 'Clipboard', shelf: 'File Drop', ai: 'AI Assistant' }
+
+function switchTab(tab) {
+  currentTab = tab
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab))
+  
+
+  const isMediaTab = tab === 'media' || tab === 'home';
+  document.querySelectorAll('.panel').forEach(p => {
+    if (isMediaTab) {
+      p.classList.toggle('active', p.id === 'panel-media')
+    } else {
+      p.classList.toggle('active', p.id === 'panel-' + tab)
+    }
+  })
+  
+  const labelEl = document.getElementById('section-label')
+  if (labelEl) labelEl.textContent = TAB_LABELS[tab] || 'Home'
+  
+  if (isMediaTab) {
+    updateCalendar();
+    updateWeather();
+  }
+}
+
+function updateCalendar() {
+  const d = new Date()
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const days = ['So','Mo','Di','Mi','Do','Fr','Sa']
+  
+  const calMonth = document.getElementById('cal-month')
+  const calYear = document.getElementById('cal-year')
+  if (calMonth) calMonth.textContent = months[d.getMonth()]
+  if (calYear) calYear.textContent = d.getFullYear()
+  
+  const weekRow = document.getElementById('cal-week-row')
+  if (!weekRow) return
+  let html = ''
+
+  for (let i=-1; i<=2; i++) {
+    const nd = new Date(d)
+    nd.setDate(d.getDate() + i)
+    const isToday = i === 0
+    const colorDay = isToday ? '#3b82f6' : 'rgba(255,255,255,0.4)'
+    const colorNum = isToday ? '#3b82f6' : 'rgba(255,255,255,0.6)'
+    const weight = isToday ? 'font-weight: 700;' : ''
+    const bg = isToday ? 'background: rgba(59, 130, 246, 0.25); border-radius: 6px; padding: 2px 4px;' : 'padding: 2px 4px;'
+    html += `
+      <div style="display:flex; flex-direction:column; align-items:center; gap:4px; ${bg}">
+        <span style="font-size: 8px; color:${colorDay};">${days[nd.getDay()]}</span>
+        <span style="font-size: 10px; color:${colorNum}; ${weight}">${nd.getDate().toString().padStart(2, '0')}</span>
+      </div>
+    `
+  }
+  weekRow.innerHTML = html
+}
+
+async function updateWeather() {
+  const tempEl = document.getElementById('weather-temp')
+  const descEl = document.getElementById('weather-desc')
+  const locEl = document.getElementById('weather-loc')
+  
+  try {
+    const res = await fetch('https://wttr.in/?format=j1')
+    const data = await res.json()
+    
+    if (data && data.current_condition && data.current_condition[0]) {
+      const cond = data.current_condition[0]
+      const country = data.nearest_area?.[0]?.country?.[0]?.value || ''
+      const isFarenheit = country.toLowerCase().includes('united states') || 
+                          country.toLowerCase().includes('usa') ||
+                          country.toLowerCase().includes('liberia') ||
+                          country.toLowerCase().includes('myanmar')
+      
+      const temp = isFarenheit ? cond.temp_F : cond.temp_C
+      const unit = isFarenheit ? '°F' : '°C'
+      const desc = cond.weatherDesc[0].value
+      const city = data.nearest_area[0].areaName[0].value
+      
+      if (tempEl) tempEl.textContent = temp + unit
+      if (descEl) descEl.textContent = desc
+      if (locEl) locEl.textContent = city
+    }
+  } catch (e) {
+    console.error('Weather fetch failed:', e)
+  }
+}
+
+function updateNowPlaying(track) {
+  const item = document.getElementById('pill-music-item')
+  const iconDiv = document.getElementById('pill-music-icon')
+  const svg = document.getElementById('pill-music-svg')
+  const artDiv = document.getElementById('album-art')
+  
+  if (!track) {
+    document.getElementById('track-name').textContent = 'Not playing'
+    document.getElementById('track-artist').textContent = 'Open Spotify or Music'
+    document.getElementById('pill-music-label').textContent = 'No music'
+    iconDiv.style.color = 'rgba(255,255,255,0.4)'
+    iconDiv.style.backgroundImage = 'none'
+    svg.style.display = 'block'
+    artDiv.style.backgroundImage = 'none'
+    artDiv.innerHTML = '♪'
+    item?.classList.remove('is-playing')
+    isPlaying = false
+    return
+  }
+  document.getElementById('track-name').textContent = track.name
+  document.getElementById('track-artist').textContent = track.artist
+  document.getElementById('pill-music-label').textContent = track.name
+  
+  if (track.url) {
+    iconDiv.style.backgroundImage = `url('${track.url}')`
+    svg.style.display = 'none'
+    artDiv.style.backgroundImage = `url('${track.url}')`
+    artDiv.innerHTML = ''
+  } else {
+    iconDiv.style.backgroundImage = 'none'
+    svg.style.display = 'block'
+    artDiv.style.backgroundImage = 'none'
+    artDiv.innerHTML = '♪'
+    const iconColor = track.source === 'spotify' ? '#1DB954' : '#fa586a'
+    iconDiv.style.color = iconColor
+  }
+
+
+  currentPos = track.pos || 0
+  currentDur = track.dur || 1
+  lastUpdateTimestamp = Date.now()
+  isPlaying = track.state === 'playing'
+
+  const progTotal = document.getElementById('prog-total')
+  if (progTotal) progTotal.textContent = Math.floor(currentDur/60) + ':' + Math.floor(currentDur%60).toString().padStart(2, '0')
+
+  updatePlayIcon()
+  
+  if (isPlaying) {
+    item?.classList.add('is-playing')
+  } else {
+    item?.classList.remove('is-playing')
+  }
+}
+
+function startProgressAnimation() {
+
+  setInterval(() => {
+    if (!isPlaying || !currentDur) return
+    
+    const elapsed = (Date.now() - lastUpdateTimestamp) / 1000
+    const projectedPos = Math.min(currentPos + elapsed, currentDur)
+    
+    const progCurr = document.getElementById('prog-curr')
+    const pFill = document.getElementById('prog-fill')
+    
+    if (progCurr) {
+      progCurr.textContent = Math.floor(projectedPos/60) + ':' + Math.floor(projectedPos%60).toString().padStart(2, '0')
+    }
+    if (pFill) {
+      pFill.style.width = Math.min((projectedPos / currentDur) * 100, 100) + '%'
+    }
+  }, 500)
+}
+
+function mediaCmd(cmd) {
+  if (cmd === 'play') {
+    isPlaying = !isPlaying
+    window.island?.mediaCmd(isPlaying ? 'play' : 'pause')
+    updatePlayIcon()
+    const item = document.getElementById('pill-music-item')
+    if (isPlaying) {
+      item?.classList.add('is-playing')
+    } else {
+      item?.classList.remove('is-playing')
+    }
+  } else {
+    window.island?.mediaCmd(cmd)
+  }
+}
+
+function updatePlayIcon() {
+  const icon = document.getElementById('play-icon')
+  icon.innerHTML = isPlaying
+    ? '<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>'
+    : '<path d="M6 4l15 8-15 8V4z"/>'
+}
+
+let currentClipboardItems = []
+
+function renderClipboard(items) {
+  currentClipboardItems = items
+  const list = document.getElementById('clip-list')
+  if (!items || items.length === 0) {
+    list.innerHTML = '<div class="clip-item" style="color:rgba(255,255,255,0.25);cursor:default;"><span class="clip-text">Copy something to see it here</span></div>'
+    return
+  }
+  list.innerHTML = items.map((item, i) => {
+    let displayContent = '';
+    
+    if (typeof item === 'string') item = { type: 'text', content: item };
+
+    if (item.type === 'text') {
+      displayContent = `<span class="clip-text">${escHtml(item.content)}</span>`;
+    } else if (item.type === 'image') {
+      displayContent = `<div style="flex:1; display:flex; align-items:center;"><img src="${item.content}" style="max-height:24px; border-radius:4px; margin-right:8px;"/><span style="opacity:0.6; font-size:12px; font-weight:normal;">Image Copied</span></div>`;
+    }
+
+    return `
+    <div class="clip-item" onclick="doCopy(this, ${i})">
+      ${displayContent}
+      <span class="clip-badge">copy</span>
+    </div>
+    `
+  }).join('')
+}
+
+function doCopy(el, idx) {
+  const item = currentClipboardItems[idx];
+  window.island?.copyToClipboard(item)
+  const badge = el.querySelector('.clip-badge')
+  badge.textContent = '✓'
+  badge.style.color = '#34d399'
+  setTimeout(() => { badge.textContent = 'copy'; badge.style.color = '' }, 1400)
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+
+async function sendAI() {
+  const input = document.getElementById('ai-input')
+  const query = input.value.trim()
+  if (!query) return
+  input.value = ''
+
+  const resp = document.getElementById('ai-response')
+  resp.classList.add('visible')
+  resp.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>'
+
+  try {
+    let apiKey = 'sk-or-v1-YOUR_API_KEY_HERE';
+    let apiModel = 'nvidia/nemotron-3-super-120b-a12b:free';
+    
+    if (window.island?.getConfig) {
+      const config = await window.island.getConfig();
+      if (config.OPENROUTER_API_KEY) {
+        apiKey = config.OPENROUTER_API_KEY;
+      }
+      if (config.MODEL_NAME) {
+        apiModel = config.MODEL_NAME;
+      }
+    }
+
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://github.com/dynamic-island',
+        'X-Title': 'Dynamic Island Mac'
+      },
+      body: JSON.stringify({
+        model: apiModel,
+        messages: [
+          { role: 'system', content: 'You are a compact macOS assistant inside a Dynamic Island widget. Be precise and concise. Maximum 2 sentences.' },
+          { role: 'user', content: query }
+        ],
+      }),
+    })
+    const data = await res.json()
+    if (data.error) {
+      resp.textContent = data.error.message || 'API Error'
+      return;
+    }
+    resp.textContent = data.choices?.[0]?.message?.content ?? 'Sorry, no response from cloud API.'
+  } catch (e) {
+    resp.textContent = 'Network offline or API Error. Please check your connection.'
+  }
+}
+
+let chargeTimeout = null;
+let lastChargeState = null;
+
+function handleChargingEvent(data) {
+  const overlay = document.getElementById('pill-charge-overlay');
+  const text = document.getElementById('charge-text');
+  const batteryItem = document.getElementById('pill-battery-item');
+  const batteryText = document.getElementById('pill-battery-text');
+  
+  if (data.state === 'plugged') {
+    batteryItem.style.display = 'flex';
+    batteryText.textContent = data.percent;
+  } else {
+    batteryItem.style.display = 'none';
+  }
+
+  // Only show the flash/overlay if the state changed (e.g. just plugged in)
+  if (data.state !== lastChargeState) {
+    if (data.state === 'plugged') {
+      text.textContent = data.percent + ' Charging';
+      text.style.color = '#34d399';
+      overlay.querySelector('.charge-icon').style.color = '#34d399';
+    } else {
+      text.textContent = 'On Battery';
+      text.style.color = '#f59e0b';
+      overlay.querySelector('.charge-icon').style.color = '#f59e0b';
+    }
+
+    overlay.classList.add('active');
+    collapse();
+    
+    clearTimeout(chargeTimeout);
+    chargeTimeout = setTimeout(() => {
+      overlay.classList.remove('active');
+    }, 3500);
+  }
+
+  lastChargeState = data.state;
+}
+
+let shelfFiles = [];
+
+function renderShelf() {
+  const list = document.getElementById('shelf-list');
+  list.innerHTML = '';
+  if (shelfFiles.length === 0) {
+    list.innerHTML = `<div class="clip-item" style="color:rgba(255,255,255,0.3);cursor:default;">
+      <span class="clip-text">Drag & drop files here</span>
+    </div>`;
+    return;
+  }
+  
+  shelfFiles.forEach((f, idx) => {
+    const el = document.createElement('div');
+    el.className = 'clip-item';
+    el.style.cursor = 'grab';
+    el.draggable = true;
+    
+    const path = typeof f === 'string' ? f : (f.path || '');
+    const nameStr = path.split(/[/\\]/).pop() || 'Unknown File';
+    
+    el.innerHTML = `
+      <div style="flex:1;min-width:0;display:flex;align-items:center;gap:8px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.6; flex-shrink:0;">
+          <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+          <polyline points="13 2 13 9 20 9"></polyline>
+        </svg>
+        <span class="clip-text">${escHtml(nameStr)}</span>
+      </div>
+      <span class="clip-badge remove-btn" style="background: rgba(255,100,100,0.1); color: #ff6b6b; cursor: pointer; padding: 2px 6px; border-radius: 4px;" title="Remove">✕</span>
+    `;
+    
+    el.ondragstart = (e) => {
+      e.preventDefault();
+      if (window.island?.startDrag) {
+        window.island.startDrag(path);
+      }
+    };
+    
+    el.querySelector('.remove-btn').onclick = (e) => {
+      e.stopPropagation();
+      shelfFiles.splice(idx, 1);
+      renderShelf();
+    };
+    
+    list.appendChild(el);
+  });
+}
+
+document.addEventListener('paste', e => {
+  if (e.clipboardData.files && e.clipboardData.files.length > 0) {
+    if (!expanded) expand();
+    if (currentTab !== 'shelf') switchTab('shelf');
+    for (const f of e.clipboardData.files) {
+      if (f.path && !shelfFiles.some(file => (file.path || file) === f.path)) {
+        shelfFiles.push(f);
+      }
+    }
+    renderShelf();
+  }
+});
+
+let dragTimeout = null;
+
+window.addEventListener('dragenter', e => {
+  e.preventDefault();
+  e.stopPropagation();
+  if (!expanded) expand();
+  if (currentTab !== 'shelf') switchTab('shelf');
+  
+  const shelf = document.getElementById('panel-shelf');
+  if (shelf) {
+    shelf.style.background = 'rgba(255,255,255,0.05)';
+    shelf.style.borderRadius = '10px';
+  }
+}, false);
+
+window.addEventListener('dragover', e => {
+  e.preventDefault();
+  e.stopPropagation();
+  e.dataTransfer.dropEffect = 'copy';
+  
+  clearTimeout(dragTimeout);
+  dragTimeout = setTimeout(() => {
+    const shelf = document.getElementById('panel-shelf');
+    if (shelf) shelf.style.background = '';
+  }, 200);
+}, false);
+
+window.addEventListener('dragleave', e => {
+  e.preventDefault();
+  e.stopPropagation();
+}, false);
+
+window.addEventListener('drop', e => {
+  e.preventDefault();
+  e.stopPropagation();
+  const shelf = document.getElementById('panel-shelf');
+  if (shelf) shelf.style.background = '';
+  
+  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    const isAbsorbMode = document.getElementById('shelf-mode-select').value === 'absorb';
+    let added = false;
+    for (const f of e.dataTransfer.files) {
+      const srcPath = f.path;
+      if (srcPath && !shelfFiles.some(file => (file.path || file) === srcPath)) {
+        if (isAbsorbMode && window.island?.absorbFile) {
+          window.island.absorbFile(srcPath).then(newPath => {
+             if (newPath && !shelfFiles.some(file => (file.path || file) === newPath)) {
+                shelfFiles.push(newPath);
+                renderShelf();
+             }
+          });
+        } else {
+          shelfFiles.push(f);
+          added = true;
+        }
+      }
+    }
+    if (added) renderShelf();
+  } else {
+    const text = e.dataTransfer.getData('text/plain');
+    if (text) {
+       if (currentTab !== 'clip') switchTab('clip');
+    }
+  }
+});
+
+const savedMode = localStorage.getItem('shelf-mode');
+if (savedMode) {
+  const select = document.getElementById('shelf-mode-select');
+  if (select) select.value = savedMode;
+}
+document.getElementById('shelf-mode-select')?.addEventListener('change', (e) => {
+  localStorage.setItem('shelf-mode', e.target.value);
+});
+
+setInterval(async () => {
+  if (shelfFiles.length > 0 && window.island?.checkExists) {
+    const currentLen = shelfFiles.length;
+    
+    for (let i = shelfFiles.length - 1; i >= 0; i--) {
+      const f = shelfFiles[i];
+      const p = typeof f === 'string' ? f : (f.path || '');
+      if (p) {
+        const exists = await window.island.checkExists(p);
+        if (!exists) {
+          shelfFiles.splice(i, 1);
+        }
+      }
+    }
+    
+    if (shelfFiles.length !== currentLen) {
+      renderShelf();
+    }
+  }
+}, 1500);
+</script>
+</body>
+</html>
