@@ -16,5 +16,6 @@ contextBridge.exposeInMainWorld('island', {
   getConfig: () => ipcRenderer.invoke('config:get'),
   saveConfig: (config) => ipcRenderer.send('config:save', config),
   openSettings: () => ipcRenderer.send('system:settings'),
-  onShowSettings: (cb) => ipcRenderer.on('app:show-settings', () => cb())
+  onShowSettings: (cb) => ipcRenderer.on('app:show-settings', () => cb()),
+  onUpdateAvailable: (cb) => ipcRenderer.on('app:update-available', () => cb())
 })

@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, screen, globalShortcut, clipboard, Tray, Menu, nativeImage, powerMonitor } = require('electron')
+const { autoUpdater } = require('electron-updater')
 const path = require('path')
 const fs = require('fs')
 const { execSync } = require('child_process')
@@ -315,7 +316,7 @@ function registerIPC() {
   })
 
   ipcMain.on('system:settings', (event) => {
-    // We no longer open Mac System Settings, instead we tell the UI to show its own settings
+
     event.sender.send('app:show-settings')
   })
   
@@ -326,6 +327,10 @@ function registerIPC() {
     } catch(e) {
       console.error('Failed to save config:', e)
     }
+  })
+
+  autoUpdater.on('update-available', () => {
+    islandWin?.webContents.send('app:update-available')
   })
 }
 
@@ -350,6 +355,10 @@ function registerShortcuts() {
 
 app.whenReady().then(() => {
   saveAndHideMenuBar()
+
+  if (!IS_DEV) {
+    autoUpdater.checkForUpdatesAndNotify()
+  }
 
   setTimeout(() => {
     createIslandWindow()
@@ -386,7 +395,6 @@ app.whenReady().then(() => {
 
     screen.on('display-removed', () => forceIslandToTop())
 
-    // Apply login settings from config
     if (fs.existsSync(configPath)) {
       try {
         const config = JSON.parse(fs.readFileSync(configPath, 'utf8'))

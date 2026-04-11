@@ -15,7 +15,13 @@
     "build": "electron-builder --mac --dir",
     "dist": "electron-builder --mac"
   },
+  "publish": {
+    "provider": "github",
+    "owner": "31Benzi",
+    "repo": "DynamicIsland-MacOS"
+  },
   "dependencies": {
+    "electron-updater": "^6.8.3",
     "node-notifier": "^10.0.1"
   },
   "devDependencies": {
@@ -31,7 +37,10 @@
       "darkModeSupport": true,
       "icon": "icons/icon.png"
     },
-    "files": ["src/**/*", "assets/**/*"],
+    "files": [
+      "src/**/*",
+      "assets/**/*"
+    ],
     "extraMetadata": {
       "main": "src/main.js"
     }

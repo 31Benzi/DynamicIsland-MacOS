@@ -223,7 +223,6 @@
   .ctrl-btn:hover { color: #fff; transform: scale(1.12); }
   .ctrl-btn.primary { color: #fff; }
 
-
   .clip-list { display: flex; flex-direction: column; gap: 6px; }
   .clip-item {
     background: rgba(255,255,255,0.05);
@@ -280,7 +279,7 @@
     40% { transform: translateY(-4px); opacity: 1; }
   }
 
-  /* Settings Styles */
+  
   .settings-group { margin-bottom: 12px; }
   .settings-label { 
     display: block; font-size: 10px; font-weight: 600; 
@@ -302,6 +301,13 @@
   }
   .save-btn:hover { background: #e5e5e5; transform: scale(1.04); }
   .save-btn:active { transform: scale(0.96); }
+
+  #update-badge {
+    position: absolute; top: -2px; right: -2px;
+    width: 6px; height: 6px; background: #3b82f6;
+    border-radius: 50%; border: 1.5px solid #000;
+    display: none;
+  }
 </style>
 </head>
 <body>
@@ -353,7 +359,10 @@
         </button>
       </div>
       <button class="settings-btn" id="settings-btn" style="background: none; border: none; color: #fff; display:flex; align-items:center; cursor:pointer;" onclick="window.island?.openSettings()">
-         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+         <div style="position: relative;">
+           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+           <div id="update-badge"></div>
+         </div>
       </button>
     </div>
 
@@ -388,7 +397,7 @@
         <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px;">
           <div id="cal-month" style="font-size: 14px; font-weight: 700; color: #fff;">Nov</div>
           <div id="cal-year" style="font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.4);">2025</div>
-          <div id="cal-week-row" style="display: flex; flex-row: 1; justify-content: space-between; margin-left: 8px;">
+          <div id="cal-week-row" style="display: flex; flex: 1; justify-content: space-between; margin-left: 8px;">
           </div>
         </div>
         
@@ -410,7 +419,6 @@
         </div>
       </div>
     </div>
-
 
     <div class="panel" id="panel-clip">
       <div class="clip-list" id="clip-list">
@@ -485,7 +493,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     t.addEventListener('click', e => { e.stopPropagation(); switchTab(t.dataset.tab) })
   })
 
-
   const closeBtn = document.getElementById('close-btn');
   if (closeBtn) {
     closeBtn.addEventListener('click', e => {
@@ -501,8 +508,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   updateCalendar()
   updateWeather()
-  setInterval(updateWeather, 15 * 60 * 1000) // Update weather every 15 mins
-  setInterval(updateCalendar, 60 * 60 * 1000) // Update calendar every hour
+  setInterval(updateWeather, 15 * 60 * 1000)
+  setInterval(updateCalendar, 60 * 60 * 1000)
 
   if (window.island) {
     const items = await window.island.getClipboard()
@@ -519,8 +526,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       expand();
       switchTab('settings');
     })
+
+    window.island.onUpdateAvailable(() => {
+      const badge = document.getElementById('update-badge')
+      if (badge) badge.style.display = 'block'
+    })
     
-    // Load current config into settings inputs
+
     const config = await window.island.getConfig();
     if (config) {
       document.getElementById('setting-api-key').value = config.OPENROUTER_API_KEY || '';
@@ -531,7 +543,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   startProgressAnimation()
 })
-
 
 let collapseTimer = null
 
@@ -710,7 +721,6 @@ function updateNowPlaying(track) {
     iconDiv.style.color = iconColor
   }
 
-
   currentPos = track.pos || 0
   currentDur = track.dur || 1
   lastUpdateTimestamp = Date.now()
@@ -842,7 +852,7 @@ async function sendAI() {
       headers: { 
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://github.com/dynamic-island',
+        'HTTP-Referer': 'https://github.com/31Benzi/DynamicIsland-MacOS',
         'X-Title': 'Dynamic Island Mac'
       },
       body: JSON.stringify({
@@ -904,7 +914,6 @@ function handleChargingEvent(data) {
     batteryItem.style.display = 'none';
   }
 
-  // Only show the flash/overlay if the state changed (e.g. just plugged in)
   if (data.state !== lastChargeState) {
     if (data.state === 'plugged') {
       text.textContent = data.percent + ' Charging';
