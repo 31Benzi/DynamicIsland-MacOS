@@ -4,8 +4,9 @@ const path = require('path')
 const fs = require('fs')
 const { execSync } = require('child_process')
 
-const shelfDir = path.join(app.getPath('userData'), 'ShelfHoldingArea')
-const configPath = path.join(app.getPath('userData'), 'config.json')
+const storageDir = path.join(app.getPath('home'), '.dynamic-island')
+const shelfDir = path.join(storageDir, 'ShelfHoldingArea')
+const configPath = path.join(storageDir, 'config.json')
 
 try { fs.mkdirSync(shelfDir, { recursive: true }) } catch (e) {}
 
