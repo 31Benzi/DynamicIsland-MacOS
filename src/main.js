@@ -4,9 +4,28 @@ const path = require('path')
 const fs = require('fs')
 const { execSync } = require('child_process')
 
-const storageDir = path.join(app.getPath('home'), '.dynamic-island')
+if (process.platform === 'darwin' || process.platform === 'win32') {
+  app.setAppUserModelId('dev.benzi.dynamic-island')
+}
+
+const gotTheLock = app.requestSingleInstanceLock()
+if (!gotTheLock) {
+  app.quit()
+}
+
+const oldStorageDir = path.join(app.getPath('home'), '.dynamic-island')
+const storageDir = path.join(app.getPath('home'), 'DynamicIsland')
 const shelfDir = path.join(storageDir, 'ShelfHoldingArea')
 const configPath = path.join(storageDir, 'config.json')
+const clipboardPath = path.join(storageDir, 'clipboard.json')
+
+try {
+  if (fs.existsSync(oldStorageDir) && !fs.existsSync(storageDir)) {
+    fs.renameSync(oldStorageDir, storageDir)
+  }
+} catch (e) {
+  console.error('Migration failed:', e)
+}
 
 try { fs.mkdirSync(shelfDir, { recursive: true }) } catch (e) {}
 
@@ -77,11 +96,8 @@ function createIslandWindow() {
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
-    alwaysOnTop: true,
-    resizable: false,
     hasShadow: false,
     skipTaskbar: false,
-    type: 'panel',
     visibleOnAllWorkspaces: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -129,7 +145,27 @@ function createTray() {
   ]))
 }
 
+function loadClipboard() {
+  try {
+    if (fs.existsSync(clipboardPath)) {
+      clipboardHistory = JSON.parse(fs.readFileSync(clipboardPath, 'utf8'));
+      clipboardHistory = clipboardHistory.slice(0, 50);
+    }
+  } catch (e) {
+    console.error('Failed to load clipboard:', e);
+  }
+}
+
+function saveClipboard() {
+  try {
+    fs.writeFileSync(clipboardPath, JSON.stringify(clipboardHistory, null, 2));
+  } catch (e) {
+    console.error('Failed to save clipboard:', e);
+  }
+}
+
 function startClipboardPolling() {
+  loadClipboard();
   clipboardPollInterval = setInterval(() => {
     let newItem = null;
     
@@ -146,94 +182,141 @@ function startClipboardPolling() {
     if (newItem) {
       if (!lastClipboard || lastClipboard.content !== newItem.content) {
         lastClipboard = newItem;
-        clipboardHistory = [newItem, ...clipboardHistory.filter(c => c.content !== newItem.content)].slice(0, 10);
+        
+        const existingIdx = clipboardHistory.findIndex(c => c.content === newItem.content);
+        if (existingIdx !== -1) {
+            const existing = clipboardHistory[existingIdx];
+            clipboardHistory.splice(existingIdx, 1);
+            clipboardHistory.unshift(existing);
+        } else {
+            clipboardHistory.unshift(newItem);
+        }
+        
+        clipboardHistory = clipboardHistory.slice(0, 50);
+        saveClipboard();
         islandWin?.webContents.send('clipboard:update', clipboardHistory);
       }
     }
-  }, 800)
+  }, 1000)
 }
 
-function getNowPlaying() {
-  const scripts = {
-    spotify: `
-      if application "Spotify" is running then
-        tell application "Spotify"
+function broadcastNowPlaying() {
+  const { exec } = require('child_process');
+  
+  const script = `
+    set output to ""
+    if application "Spotify" is running then
+      tell application "Spotify"
+        try
           set pState to player state as string
           if pState is "playing" or pState is "paused" then
-            set tName to name of current track as string
-            set tArtist to artist of current track as string
+            set tName to name of current track
+            set tArtist to artist of current track
             set tArt to ""
             try
-              set tArt to artwork url of current track as string
+              set tArt to artwork url of current track
             end try
-            set tPos to "0"
-            try
-              set tPos to player position as string
-            end try
-            set tDur to "1"
-            try
-              set tDur to duration of current track as string
-            end try
-            return tName & "|||" & tArtist & "|||" & pState & "|||" & tArt & "|||" & tPos & "|||" & tDur
+            set tPos to player position
+            set tDur to duration of current track
+            set output to "spotify|||" & tName & "|||" & tArtist & "|||" & pState & "|||" & tArt & "|||" & tPos & "|||" & tDur
           end if
-        end tell
-      end if
-    `,
-    music: `
-      if application "Music" is running then
-        tell application "Music"
+        end try
+      end tell
+    end if
+    
+    if output is "" and application "Music" is running then
+      tell application "Music"
+        try
           set pState to player state as string
           if pState is "playing" or pState is "paused" then
-            set tName to name of current track as string
-            set tArtist to artist of current track as string
-            set tPos to "0"
-            try
-              set tPos to player position as string
-            end try
-            set tDur to "1"
-            try
-              set tDur to duration of current track as string
-            end try
-            return tName & "|||" & tArtist & "|||" & pState & "||||||" & tPos & "|||" & tDur
+            set tName to name of current track
+            set tArtist to artist of current track
+            set tArt to ""
+            set tPos to player position
+            set tDur to duration of current track
+            set output to "music|||" & tName & "|||" & tArtist & "|||" & pState & "|||" & tArt & "|||" & tPos & "|||" & tDur
+          end if
+        end try
+      end tell
+    end if
+    return output
+  `;
+
+  exec(`osascript -e '${script}'`, (err, stdout) => {
+    if (err) {
+      console.error('Media fetch error:', err);
+      return;
+    }
+    
+    const result = stdout.toString().trim();
+    if (!result) {
+      islandWin?.webContents.send('media:nowplaying', null);
+      return;
+    }
+
+    const parts = result.split('|||');
+    if (parts.length < 7) return;
+
+    const app = parts[0];
+    const name = parts[1];
+    const artist = parts[2];
+    const state = parts[3];
+    const artUrl = parts[4] || '';
+    const pos = parts[5] ? parseFloat(parts[5]) : 0;
+    let dur = parts[6] ? parseFloat(parts[6]) : 1;
+    
+    if (app === 'spotify') dur = dur / 1000;
+    
+    lastActiveApp = app;
+    islandWin?.webContents.send('media:nowplaying', { 
+      name, 
+      artist, 
+      state, 
+      url: artUrl, 
+      source: app, 
+      pos, 
+      dur 
+    });
+  });
+}
+
+let lastActiveApp = null;
+
+function mediaCommand(cmd) {
+  const { exec } = require('child_process');
+  const cmdMap = { 'play': 'play', 'pause': 'pause', 'next': 'next track', 'prev': 'previous track' };
+  const appleScriptCmd = cmdMap[cmd] || cmd;
+
+  const targetApp = (lastActiveApp === 'music' ? 'Music' : 'Spotify');
+  
+  const script = `
+    try
+      if application "Spotify" is running then
+        tell application "Spotify"
+          if player state is playing then
+            tell application "Spotify" to ${appleScriptCmd}
+            return
           end if
         end tell
       end if
-    `,
-  }
-
-  for (const [app, script] of Object.entries(scripts)) {
-    try {
-      const result = execSync(`/usr/bin/osascript -e '${script}'`, {
-        timeout: 1000,
-        stdio: ['pipe', 'pipe', 'ignore'],
-      }).toString().trim()
-
-      if (result) {
-        const parts = result.split('|||')
-        const name = parts[0]
-        const artist = parts[1]
-        const state = parts[2]
-        const artUrl = parts[3] ? parts[3].trim() : ''
-        const pos = parts[4] ? parseFloat(parts[4]) : 0
-        let dur = parts[5] ? parseFloat(parts[5]) : 1
-        if (app === 'spotify') dur = dur / 1000 
-        return { name, artist, state, url: artUrl, source: app, pos, dur }
-      }
-    } catch (_) {}
-  }
-  return null
-}
-
-function mediaCommand(cmd) {
-  const spotifyScript = {
-    play: `tell application "Spotify" to play`,
-    pause: `tell application "Spotify" to pause`,
-    next: `tell application "Spotify" to next track`,
-    prev: `tell application "Spotify" to previous track`,
-  }
-  try {
-    execSync(`osascript -e '${spotifyScript[cmd]}'`, { timeout: 1000, stdio: 'ignore' })
-  } catch (_) {}
+    end try
+    try
+      if application "Music" is running then
+        tell application "Music"
+          if player state is playing then
+            tell application "Music" to ${appleScriptCmd}
+            return
+          end if
+        end tell
+      end if
+    end try
+    try
+      if application "${targetApp}" is running then
+        tell application "${targetApp}" to ${appleScriptCmd}
+      end if
+    end try
+  `;
+  exec(`osascript -e '${script}'`);
 }
 
 function registerIPC() {
@@ -246,8 +329,16 @@ function registerIPC() {
     setTimeout(() => forceIslandToTop(), 50)
   })
 
-  ipcMain.handle('media:get', () => getNowPlaying())
-  ipcMain.on('media:cmd', (_, cmd) => mediaCommand(cmd))
+  ipcMain.handle('media:get', () => {
+    broadcastNowPlaying()
+    return null 
+  })
+  ipcMain.on('media:cmd', (_, cmd) => {
+    mediaCommand(cmd);
+    setTimeout(broadcastNowPlaying, 400);
+    setTimeout(broadcastNowPlaying, 1000);
+  })
+  ipcMain.on('app:quit', () => app.quit())
 
   ipcMain.handle('clipboard:get', () => clipboardHistory)
   ipcMain.on('clipboard:copy', (_, item) => {
@@ -260,15 +351,26 @@ function registerIPC() {
     }
   })
 
-  ipcMain.on('notif:clear', (_, idx) => {})
+  ipcMain.on('clipboard:pin', (_, { index, pinned }) => {
+    if (clipboardHistory[index]) {
+        clipboardHistory[index].pinned = pinned;
+        saveClipboard();
+        islandWin?.webContents.send('clipboard:update', clipboardHistory);
+    }
+  })
+
+  ipcMain.on('clipboard:delete', (_, index) => {
+    if (clipboardHistory[index]) {
+        clipboardHistory.splice(index, 1);
+        saveClipboard();
+        islandWin?.webContents.send('clipboard:update', clipboardHistory);
+    }
+  })
 
   ipcMain.on('drag:start', async (event, filepath) => {
     try {
       const icon = await app.getFileIcon(filepath)
-      event.sender.startDrag({
-        file: filepath,
-        icon: icon || nativeImage.createEmpty()
-      })
+      event.sender.startDrag({ file: filepath, icon: icon || nativeImage.createEmpty() })
     } catch(e) {
       event.sender.startDrag({ file: filepath, icon: nativeImage.createEmpty() })
     }
@@ -278,21 +380,16 @@ function registerIPC() {
     try {
       if (!fs.existsSync(sourcePath)) return null;
       const filename = path.basename(sourcePath)
-      
       const uniqueSubDir = path.join(shelfDir, Date.now().toString() + Math.floor(Math.random()*1000).toString())
       fs.mkdirSync(uniqueSubDir, { recursive: true })
-      
       const destPath = path.join(uniqueSubDir, filename)
-      
       try {
         fs.renameSync(sourcePath, destPath)
       } catch(e) {
         if (e.code === 'EXDEV') {
           fs.copyFileSync(sourcePath, destPath)
           fs.unlinkSync(sourcePath)
-        } else {
-          throw e
-        }
+        } else { throw e }
       }
       return destPath
     } catch (err) {
@@ -302,9 +399,7 @@ function registerIPC() {
   })
 
   ipcMain.handle('shelf:check', async (event, filepath) => {
-    try {
-      return fs.existsSync(filepath)
-    } catch(e) { return false }
+    try { return fs.existsSync(filepath) } catch(e) { return false }
   })
 
   ipcMain.handle('config:get', async () => {
@@ -317,7 +412,6 @@ function registerIPC() {
   })
 
   ipcMain.on('system:settings', (event) => {
-
     event.sender.send('app:show-settings')
   })
   
@@ -328,27 +422,6 @@ function registerIPC() {
     } catch(e) {
       console.error('Failed to save config:', e)
     }
-  })
-
-  autoUpdater.on('update-available', () => {
-    islandWin?.webContents.send('app:update-available')
-    console.log('Update available.')
-  })
-
-  autoUpdater.on('error', (err) => {
-    console.error('Updater error:', err)
-  })
-
-  autoUpdater.on('checking-for-update', () => {
-    console.log('Checking for update...')
-  })
-
-  autoUpdater.on('update-not-available', () => {
-    console.log('Update not available.')
-  })
-
-  autoUpdater.on('update-downloaded', () => {
-    console.log('Update downloaded; will install now')
   })
 }
 
@@ -385,8 +458,10 @@ app.whenReady().then(() => {
     startClipboardPolling()
     
     function sendBatteryState() {
-      try {
-        const pmset = execSync('pmset -g batt').toString()
+      const { exec } = require('child_process')
+      exec('pmset -g batt', (err, stdout) => {
+        if (err) return
+        const pmset = stdout.toString()
         const isPlugged = pmset.includes('AC Power')
         let percent = '100%'
         const match = pmset.match(/(\d+)%/)
@@ -397,7 +472,7 @@ app.whenReady().then(() => {
         } else {
           islandWin?.webContents.send('system:charging', { state: 'unplugged', percent })
         }
-      } catch(e) {}
+      })
     }
     
     setTimeout(sendBatteryState, 2000)
@@ -406,9 +481,8 @@ app.whenReady().then(() => {
     powerMonitor.on('on-ac', sendBatteryState)
     powerMonitor.on('on-battery', sendBatteryState)
 
-    setInterval(async () => {
-      const track = getNowPlaying()
-      islandWin?.webContents.send('media:nowplaying', track)
+    setInterval(() => {
+      broadcastNowPlaying()
     }, 1000)
 
     screen.on('display-removed', () => forceIslandToTop())

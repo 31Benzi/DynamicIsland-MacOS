@@ -160,7 +160,7 @@
     display: flex; align-items: center; justify-content: center;
     transition: color 0.15s;
   }
-  .close-btn:hover { color: #fff; }
+   .close-btn:hover { color: #ff5f57; background: rgba(255, 95, 87, 0.1); }
 
   .top-nav {
     display: flex; justify-content: space-between; align-items: center; 
@@ -236,6 +236,18 @@
   .clip-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
   .clip-badge { font-size: 11px; color: rgba(255,255,255,0.3); flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.05em; }
   .clip-item:hover .clip-badge { color: rgba(255,255,255,0.6); }
+  
+  .clip-actions {
+    display: flex; gap: 8px; opacity: 0; transition: opacity 0.15s;
+  }
+  .clip-item:hover .clip-actions { opacity: 1; }
+  .clip-action {
+    width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
+    border-radius: 4px; transition: background 0.15s;
+  }
+  .clip-action:hover { background: rgba(255,255,255,0.1); }
+  .clip-action.pinned { color: #fbbf24; }
+  .clip-action.delete:hover { color: #ff6b6b; background: rgba(255,100,100,0.1); }
 
   .ai-response {
     background: rgba(255,255,255,0.06);
@@ -344,6 +356,9 @@
 
   <div id="content">
     <div class="top-nav">
+      <button class="close-btn" id="close-btn" onclick="window.island?.quitApp()">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
       <div class="tab-bar">
         <button class="tab active" data-tab="media">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
@@ -386,9 +401,9 @@
           </div>
 
           <div style="display: flex; justify-content: center; gap: 16px; margin-top: 10px;">
-            <button onclick="mediaCmd('prev')" style="background:none; border:none; color:#fff; cursor:pointer; padding:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 20L9 12l10-8v16zM5 4h2v16H5z"/></svg></button>
-            <button id="play-btn" onclick="mediaCmd('play')" style="background:none; border:none; color:#fff; cursor:pointer; padding:4px;"><svg width="14" height="14" id="play-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>
-            <button onclick="mediaCmd('next')" style="background:none; border:none; color:#fff; cursor:pointer; padding:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l10 8-10 8V4zM19 4h2v16h-2z"/></svg></button>
+            <button onclick="event.stopPropagation(); mediaCmd('prev', event)" style="background:none; border:none; color:#fff; cursor:pointer; padding:4px; transition: transform 0.1s;" onmousedown="this.style.transform='scale(0.9)'" onmouseup="this.style.transform='scale(1)'" onmouseleave="this.style.transform='scale(1)'"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 20L9 12l10-8v16zM5 4h2v16H5z"/></svg></button>
+            <button id="play-btn" onclick="event.stopPropagation(); mediaCmd('play', event)" style="background:none; border:none; color:#fff; cursor:pointer; padding:4px; transition: transform 0.1s;" onmousedown="this.style.transform='scale(0.9)'" onmouseup="this.style.transform='scale(1)'" onmouseleave="this.style.transform='scale(1)'"><svg width="14" height="14" id="play-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg></button>
+            <button onclick="event.stopPropagation(); mediaCmd('next', event)" style="background:none; border:none; color:#fff; cursor:pointer; padding:4px; transition: transform 0.1s;" onmousedown="this.style.transform='scale(0.9)'" onmouseup="this.style.transform='scale(1)'" onmouseleave="this.style.transform='scale(1)'"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l10 8-10 8V4zM19 4h2v16h-2z"/></svg></button>
           </div>
         </div>
       </div>
@@ -758,11 +773,12 @@ function startProgressAnimation() {
   }, 500)
 }
 
-function mediaCmd(cmd) {
+function mediaCmd(cmd, event) {
   if (cmd === 'play') {
     isPlaying = !isPlaying
     window.island?.mediaCmd(isPlaying ? 'play' : 'pause')
     updatePlayIcon()
+    
     const item = document.getElementById('pill-music-item')
     if (isPlaying) {
       item?.classList.add('is-playing')
@@ -770,6 +786,11 @@ function mediaCmd(cmd) {
       item?.classList.remove('is-playing')
     }
   } else {
+    const btn = event?.currentTarget;
+    if (btn) {
+      btn.style.transform = 'scale(0.8)';
+      setTimeout(() => { btn.style.transform = 'scale(1)'; }, 100);
+    }
     window.island?.mediaCmd(cmd)
   }
 }
@@ -801,13 +822,31 @@ function renderClipboard(items) {
       displayContent = `<div style="flex:1; display:flex; align-items:center;"><img src="${item.content}" style="max-height:24px; border-radius:4px; margin-right:8px;"/><span style="opacity:0.6; font-size:12px; font-weight:normal;">Image Copied</span></div>`;
     }
 
+    const isPinned = item.pinned === true;
+    
     return `
     <div class="clip-item" onclick="doCopy(this, ${i})">
       ${displayContent}
+      <div class="clip-actions">
+        <div class="clip-action ${isPinned ? 'pinned' : ''}" onclick="event.stopPropagation(); togglePin(${i}, ${!isPinned})">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="${isPinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M21 10V8a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2"></path><path d="M7 10v4a2 2 0 0 1-2 2H2v4h20v-4h-3a2 2 0 0 1-2-2v-4"></path><path d="M11 10V7h2v3"></path><path d="M12 22v-3"></path></svg>
+        </div>
+        <div class="clip-action delete" onclick="event.stopPropagation(); deleteItem(${i})">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        </div>
+      </div>
       <span class="clip-badge">copy</span>
     </div>
     `
   }).join('')
+}
+
+function togglePin(idx, pinned) {
+  window.island?.pinClipboard(idx, pinned);
+}
+
+function deleteItem(idx) {
+  window.island?.deleteClipboard(idx);
 }
 
 function doCopy(el, idx) {
