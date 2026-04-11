@@ -332,6 +332,23 @@ function registerIPC() {
 
   autoUpdater.on('update-available', () => {
     islandWin?.webContents.send('app:update-available')
+    console.log('Update available.')
+  })
+
+  autoUpdater.on('error', (err) => {
+    console.error('Updater error:', err)
+  })
+
+  autoUpdater.on('checking-for-update', () => {
+    console.log('Checking for update...')
+  })
+
+  autoUpdater.on('update-not-available', () => {
+    console.log('Update not available.')
+  })
+
+  autoUpdater.on('update-downloaded', () => {
+    console.log('Update downloaded; will install now')
   })
 }
 
