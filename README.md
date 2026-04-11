@@ -92,6 +92,12 @@
 
 ---
 
+## 📥 Download
+
+**[⬇️ Download Latest Release (v1.2.0)](https://github.com/31Benzi/DynamicIsland-MacOS/releases/tag/v1.2.0)**
+
+---
+
 ## 🚀 Getting Started
 
 ```bash
