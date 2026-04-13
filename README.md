@@ -38,9 +38,9 @@
 
 ---
 
-## ✨ Features
+## Features
 
-### 🎨 Core Interface & UX
+### Core Interface & UX
 - **Adaptive Design** — Anchors to the top center of your primary display, mimicking the iPhone Dynamic Island
 - **Fluid Animations** — Smooth transitions between the collapsed Pill state and expanded Dashboard using premium cubic-bezier curves
 - **Interactive Hover** — Expands automatically when your cursor enters the area
@@ -49,7 +49,7 @@
 
 ---
 
-### 🎵 Media Control Center
+### Media Control Center
 - **Smart Player Detection** — Automatically detects playback from **Spotify** and **Apple Music**
 - **Live Metadata** — Displays album artwork, track name, and artist in real time
 - **Playback Controls** — Play/Pause, Next Track, and Previous Track buttons
@@ -58,33 +58,33 @@
 
 ---
 
-### 📅 Productivity Widgets
+### Productivity Widgets
 - **Weather Widget** — Real-time conditions via `wttr.in`, with auto-detected location and automatic °C/°F based on your region
 - **Dynamic Calendar** — Current month view with a focused 4-day mini-view highlighting today
 - **Battery Monitor** — Live battery percentage and charging status, with a dedicated charging overlay when plugged in
 
 ---
 
-### 🛠️ Advanced Utility Tools
+### Advanced Utility Tools
 
-#### 📋 Clipboard Manager
+#### Clipboard Manager
 - Stores a persistent history of the last **50 items** (text & images)
 - **Pin** favorite snippets for instant access
 - One-click restore to copy any historical item back to your clipboard
 
-#### 📂 The Shelf (File Drop)
+#### The Shelf (File Drop)
 - Drag-and-drop zone for temporary file handling
 - **Hold Reference Mode** — Keeps a quick-access link to a file for easy re-dragging
 - **Absorb Mode** — Moves files into a managed `ShelfHoldingArea` for later use
 
-#### 🤖 AI Assistant
+#### AI Assistant
 - Built-in chat powered by **OpenRouter**
 - Query models like **Gemini 2.0 Flash** directly from your desktop — no browser required
 - Configure your own API key and preferred model in Settings
 
 ---
 
-### ⚙️ System & Settings
+### System & Settings
 - **Custom Configuration** — Manage AI API keys, model selection, and app behavior from a simple UI
 - **Launch at Login** — Optionally start the app automatically on macOS login
 - **Auto-Updates** — Built-in update checker with a blue badge notification when a new version is available
@@ -95,27 +95,6 @@
 ## 📥 Download
 
 **[⬇️ Download Latest Release (v1.2.0)](https://github.com/31Benzi/DynamicIsland-MacOS/releases/tag/v1.2.0)**
-
----
-
-## 🚀 Getting Started
-
-```bash
-# Clone the repo
-git clone https://github.com/31Benzi/dynamic-island-mac.git
-cd dynamic-island-mac
-
-# Install dependencies
-npm install
-
-# Run in development
-npm start
-
-# Build for production
-npm run build
-```
-
----
 
 ## 🔧 Configuration
 
